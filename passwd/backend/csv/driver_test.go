@@ -8,7 +8,7 @@ import (
 )
 
 func TestOpenReader(t *testing.T) {
-	text := "user1\001passwd1\nuser2\001passwd2\nuser3\001passwd3\n"
+	text := "user1,passwd1\nuser2,passwd2\nuser3,passwd3\n"
 
 	c, err := openReader(strings.NewReader(text))
 	assert.Nil(t, err)
@@ -34,10 +34,8 @@ func TestOpenReaderMalformedRecord(t *testing.T) {
 	text := "user1\n"
 
 	c, err := openReader(strings.NewReader(text))
-	assert.Nil(t, err)
-	v := c.(connector)
-
-	assert.Len(t, v, 0)
+	assert.NotNil(t, err)
+	assert.Nil(t, c)
 }
 
 func TestOpenReaderEmpty(t *testing.T) {

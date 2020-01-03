@@ -159,7 +159,8 @@ func deleHandler(client *Client, command FtpCommand) (isExiting bool) {
 }
 
 func mkdHandler(client *Client, command FtpCommand) (isExiting bool) {
-	realDir := client.realPath(command.Params[0])
+	paramDir := command.Params[0]
+	realDir := client.realPath(paramDir)
 	if err := os.Mkdir(realDir, 0755); err != nil {
 		_ = client.sendReply(550, "Can't create directory: %v", err.(*os.PathError).Err)
 	} else {
