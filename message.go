@@ -51,6 +51,62 @@ func init() {
 			argc:    0,
 			handler: quitHandler,
 		},
+		"REIN": {
+			argc:    0,
+			handler: notImplementedHandler,
+		},
+		"PORT": {
+			argc:    1,
+			handler: notImplementedHandler,
+		},
+		"PASV": {
+			argc:    0,
+			handler: pasvHandler,
+		},
+		"TYPE": {
+			argc:    1,
+			handler: notImplementedHandler,
+		},
+		"STRU": {
+			argc:    1,
+			handler: notImplementedHandler,
+		},
+		"MODE": {
+			argc:    1,
+			handler: notImplementedHandler,
+		},
+		"RETR": {
+			argc:    1,
+			handler: notImplementedHandler,
+		},
+		"STOR": {
+			argc:    1,
+			handler: notImplementedHandler,
+		},
+		"STOU": {
+			argc:    0,
+			handler: notImplementedHandler,
+		},
+		"APPE": {
+			argc:    1,
+			handler: notImplementedHandler,
+		},
+		"ABOR": {
+			argc:    0,
+			handler: notImplementedHandler,
+		},
+		"DELE": {
+			argc:    1,
+			handler: notImplementedHandler,
+		},
+		"RMD": {
+			argc:    1,
+			handler: notImplementedHandler,
+		},
+		"MKD": {
+			argc:    1,
+			handler: notImplementedHandler,
+		},
 		"PWD": {
 			argc:    0,
 			handler: pwdHandler,
@@ -59,9 +115,9 @@ func init() {
 			argc:    0,
 			handler: listHandler,
 		},
-		"PASV": {
+		"NLST": {
 			argc:    0,
-			handler: pasvHandler,
+			handler: notImplementedHandler,
 		},
 	}
 }
