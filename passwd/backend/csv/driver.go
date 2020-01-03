@@ -12,22 +12,15 @@ import (
 type connector map[string]string
 type driver struct{}
 
-var (
-	drv passwd.Driver = driver{}
-)
+var drv passwd.Driver = driver{}
+var ErrMalformedRecord = errors.New("malformed record")
 
 func init() {
 	passwd.Register("csv", drv)
 }
 
-func (drv driver) OpenConnector(dataSourceName string) (passwd.Connector, error) {
-	f, err := os.Open(dataSourceName)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	r := csv.NewReader(f)
+func openReader(rd io.Reader) (passwd.Connector, error) {
+	r := csv.NewReader(rd)
 
 	c := make(connector)
 
@@ -41,13 +34,22 @@ func (drv driver) OpenConnector(dataSourceName string) (passwd.Connector, error)
 		}
 
 		if len(record) != 2 {
-			return nil, errors.New("malformed record")
+			return nil, ErrMalformedRecord
 		}
 
 		c[record[0]] = record[1]
 	}
 
 	return c, nil
+}
+
+func (drv driver) OpenConnector(dataSourceName string) (passwd.Connector, error) {
+	f, err := os.Open(dataSourceName)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	return openReader(f)
 }
 
 func (c connector) GetPassword(user string) (string, error) {
