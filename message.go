@@ -118,9 +118,17 @@ func init() {
 		},
 		"NLST": {
 			argc:    0,
-			handler: notImplementedHandler,
+			handler: nlstHandler,
+		},
+		"NOOP": {
+			argc:    0,
+			handler: noopHandler,
 		},
 	}
+}
+
+func noopHandler(client *Client, command FtpCommand) (isExiting bool) {
+	return
 }
 
 func rmdHandler(client *Client, command FtpCommand) (isExiting bool) {
@@ -229,28 +237,24 @@ func pasvHandler(client *Client, command FtpCommand) (isExiting bool) {
 }
 
 func listHandler(client *Client, command FtpCommand) (isExiting bool) {
-	// If we aren't in passive mode and don't have a data connection, abort.
-	var err error
-	if client.dataLis == nil {
-		_ = client.sendReply(425, "No data connection")
+	if !client.ensureDataConn() {
 		return
 	}
-
-	// Block until we get a data connection.
-	client.dataConn, err = client.dataLis.Accept()
-	if err != nil {
-		_ = client.sendReply(421, "The connection couldn't be accepted")
-		return
-	}
+	defer client.dataConn.Close()
 
 	// Send over the data connection.
 	_, _ = fmt.Fprintf(client.dataConn, "list")
-	_ = client.dataConn.Close()
-
-	return false
+	return
 }
 
 func nlstHandler(client *Client, command FtpCommand) (isExiting bool) {
+	if !client.ensureDataConn() {
+		return
+	}
+	defer client.dataConn.Close()
+
+	// Send over the data connection.
+	_, _ = fmt.Fprintf(client.dataConn, "nlst")
 	return
 }
 

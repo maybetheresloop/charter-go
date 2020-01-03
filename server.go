@@ -240,3 +240,21 @@ func (client *Client) realPath(path string) string {
 	// Get the real directory by joining with the client's root directory.
 	return filepath.Join(client.rootDir, relDir)
 }
+
+func (client *Client) ensureDataConn() bool {
+	// If we aren't in passive mode and don't have a data connection listener, abort.
+	var err error
+	if client.dataLis == nil {
+		_ = client.sendReply(425, "No data connection")
+		return false
+	}
+
+	// Block until we get a data connection.
+	client.dataConn, err = client.dataLis.Accept()
+	if err != nil {
+		_ = client.sendReply(421, "The connection couldn't be accepted")
+		return false
+	}
+
+	return true
+}
