@@ -5,17 +5,17 @@ import (
 )
 
 type connector map[string]string
-type context struct{}
+type driver struct{}
 
 var (
-	ctx passwd.DriverContext = &context{}
+	ctx passwd.Driver = driver{}
 )
 
 func init() {
 	passwd.Register("csv", ctx)
 }
 
-func (ctx context) OpenConnector(dataSourceName string) (passwd.Connector, error) {
+func (d driver) OpenConnector(dataSourceName string) (passwd.Connector, error) {
 	c := make(connector)
 	return c, nil
 }

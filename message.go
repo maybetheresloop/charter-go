@@ -2,12 +2,14 @@ package charter
 
 import (
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 )
 
 var (
-	ErrNotDir = errors.New("not a directory")
+	ErrLineIsEmpty = errors.New("line is empty")
+	ErrNotDir      = errors.New("not a directory")
 )
 
 type commandHandler func(client *Client, command FtpCommand) (isExiting bool)
@@ -52,6 +54,14 @@ func init() {
 		"PWD": {
 			argc:    0,
 			handler: pwdHandler,
+		},
+		"LIST": {
+			argc:    0,
+			handler: listHandler,
+		},
+		"PASV": {
+			argc:    0,
+			handler: pasvHandler,
 		},
 	}
 }
@@ -104,12 +114,55 @@ func cdupHandler(client *Client, command FtpCommand) (isExiting bool) {
 	return
 }
 
+func pasvHandler(client *Client, command FtpCommand) (isExiting bool) {
+	prevPort := client.dataPort
+	client.dataPort, client.dataLis = client.server.reserveDataPort()
+
+	// If we were previously listening on a port, release it.
+	if prevPort != 0 {
+		client.server.releaseDataPort(prevPort)
+	}
+
+	if client.dataLis == nil {
+		_ = client.sendReply(421, "No ports available for passive mode")
+		return true
+	}
+
+	_ = client.sendReply(227, "Entering Passive Mode (127,0,0,1,%d,%d)",
+		client.dataPort&0xFF00>>8, client.dataPort&0x00FF)
+	return false
+}
+
+func listHandler(client *Client, command FtpCommand) (isExiting bool) {
+	// If we aren't in passive mode and don't have a data connection, abort.
+	var err error
+	if client.dataLis == nil {
+		_ = client.sendReply(425, "No data connection")
+		return
+	}
+
+	// Block until we get a data connection.
+	client.dataConn, err = client.dataLis.Accept()
+	if err != nil {
+		_ = client.sendReply(421, "The connection couldn't be accepted")
+		return
+	}
+
+	// Send over the data connection.
+	_, _ = fmt.Fprintf(client.dataConn, "list")
+	_ = client.dataConn.Close()
+
+	return false
+}
+
 func pwdHandler(client *Client, command FtpCommand) (isExiting bool) {
 	client.sendReply(257, "%q is your current location", client.workingDir)
 	return
 }
 
 func quitHandler(client *Client, command FtpCommand) bool {
+	//
+
 	return true
 }
 
@@ -122,10 +175,6 @@ type FtpCommand struct {
 	Command string
 	Params  []string
 }
-
-var (
-	ErrLineIsEmpty = errors.New("line is empty")
-)
 
 // ParseLine parses an FTP command from the given FTP line.
 func ParseLine(line string) (FtpCommand, error) {

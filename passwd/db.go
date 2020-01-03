@@ -3,7 +3,7 @@ package passwd
 import "errors"
 
 var (
-	drivers = make(map[string]DriverContext)
+	drivers = make(map[string]Driver)
 )
 
 var (
@@ -14,7 +14,7 @@ type Connector interface {
 	GetPassword(user string) (string, error)
 }
 
-type DriverContext interface {
+type Driver interface {
 	OpenConnector(dataSourceName string) (Connector, error)
 }
 
@@ -30,6 +30,6 @@ func Open(driverName, dataSourceName string) (*DB, error) {
 	return nil, nil
 }
 
-func Register(driverName string, ctx DriverContext) {
-	drivers[driverName] = ctx
+func Register(driverName string, driver Driver) {
+	drivers[driverName] = driver
 }

@@ -1,0 +1,6 @@
+anonymous-only = false
+no-anonymous = false
+
+[[backend]]
+name = "csv"
+data-source-name = "charterd-passwd.csv"

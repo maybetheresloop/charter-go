@@ -9,26 +9,49 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/maybetheresloop/charter-go/passwd"
 )
 
+type dataConnListener struct {
+	active bool
+	lis    net.Listener
+}
+
 type Server struct {
-	config   *Config
-	passwdDb passwd.DB
+	config              *Config
+	passwdDb            passwd.DB
+	dataConnListenersMu sync.Mutex
+	dataConnListeners   map[uint16]*dataConnListener
+	shutdown            chan struct{}
+}
+
+type Backend struct {
+	Name           string
+	DataSourceName string `toml:"data-source-name"`
+}
+
+type PassivePortRange struct {
+	From uint16
+	To   uint16
 }
 
 type Config struct {
-	Addr          string
-	DefaultDir    string
-	NoAnonymous   bool
-	AnonymousOnly bool
+	Addr             string
+	DefaultDir       string
+	NoAnonymous      bool `toml:"no-anonymous"`
+	AnonymousOnly    bool `toml:"anonymous-only"`
+	Backend          []Backend
+	PassivePortRange PassivePortRange
 }
 
 type Client struct {
 	ctrlConn     net.Conn
+	dataLis      net.Listener
 	dataConn     net.Conn
-	srv          *Server
+	dataPort     uint16
+	server       *Server
 	response     *bytes.Buffer
 	username     string
 	rootDir      string
@@ -114,19 +137,68 @@ func verifyDir(dir string) error {
 
 func NewServer(config *Config) *Server {
 	srv := &Server{
-		config: config,
+		config:            config,
+		dataConnListeners: make(map[uint16]*dataConnListener),
 	}
 
 	return srv
 }
 
 func (srv *Server) ListenAndServe() error {
+	// Setup control connection listener.
 	lis, err := net.Listen("tcp", srv.config.Addr)
 	if err != nil {
 		return err
 	}
 
+	// Setup data connection listeners.
+	if err := srv.addDataConnectionListeners(); err != nil {
+		return err
+	}
+
+	// Serve control connections.
 	return srv.Serve(lis)
+}
+
+func (srv *Server) addDataConnectionListeners() error {
+	rg := srv.config.PassivePortRange
+
+	// Each listener gets its own acceptor goroutine.
+	for i := rg.From; i <= rg.To; i++ {
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", i))
+		if err != nil {
+			return err
+		}
+
+		srv.dataConnListeners[i] = &dataConnListener{
+			active: false,
+			lis:    lis,
+		}
+	}
+
+	return nil
+}
+
+func (srv *Server) reserveDataPort() (uint16, net.Listener) {
+	srv.dataConnListenersMu.Lock()
+	defer srv.dataConnListenersMu.Unlock()
+
+	for port, lis := range srv.dataConnListeners {
+		if !lis.active {
+			lis.active = true
+		}
+
+		return port, lis.lis
+	}
+
+	return uint16(0), nil
+}
+
+func (srv *Server) releaseDataPort(port uint16) {
+	srv.dataConnListenersMu.Lock()
+	defer srv.dataConnListenersMu.Unlock()
+
+	srv.dataConnListeners[port].active = false
 }
 
 func (srv *Server) Serve(lis net.Listener) error {
@@ -147,7 +219,7 @@ func (srv *Server) Serve(lis net.Listener) error {
 func (srv *Server) newClient(conn net.Conn) *Client {
 	return &Client{
 		ctrlConn:   conn,
-		srv:        srv,
+		server:     srv,
 		response:   &bytes.Buffer{},
 		rootDir:    srv.config.DefaultDir,
 		workingDir: "/",

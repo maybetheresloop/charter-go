@@ -10,16 +10,16 @@ import (
 )
 
 func run(ctx *cli.Context) error {
-	defaultDir, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	conf := &charter.Config{
-		Addr:       ":5678",
-		DefaultDir: defaultDir,
-	}
+	// Get default configuration.
+	conf := defaultConfig()
 
-	// Next, retrieve configuration from configuration file.
+	// Next, retrieve configuration from configuration file, if specified.
+	fp := ctx.Args().First()
+	if fp != "" {
+		if err := populateFromFile(conf, fp); err != nil {
+			return err
+		}
+	}
 
 	// Finally, retrieve configuration overrides from command line.
 	populateFromCliContext(conf, ctx)
