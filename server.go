@@ -225,3 +225,18 @@ func (srv *Server) newClient(conn net.Conn) *Client {
 		workingDir: "/",
 	}
 }
+
+func (client *Client) realPath(path string) string {
+	// If the new directory's path is relative, join it with the current working directory. If it's
+	// absolute, then use it directly.
+	var relDir string
+	paramDir := path
+	if filepath.IsAbs(paramDir) {
+		relDir = paramDir
+	} else {
+		relDir = filepath.Join(client.workingDir, paramDir)
+	}
+
+	// Get the real directory by joining with the client's root directory.
+	return filepath.Join(client.rootDir, relDir)
+}

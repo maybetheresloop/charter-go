@@ -3,6 +3,7 @@ package charter
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -97,15 +98,15 @@ func init() {
 		},
 		"DELE": {
 			argc:    1,
-			handler: notImplementedHandler,
+			handler: deleHandler,
 		},
 		"RMD": {
 			argc:    1,
-			handler: notImplementedHandler,
+			handler: rmdHandler,
 		},
 		"MKD": {
 			argc:    1,
-			handler: notImplementedHandler,
+			handler: mkdHandler,
 		},
 		"PWD": {
 			argc:    0,
@@ -122,9 +123,47 @@ func init() {
 	}
 }
 
+func rmdHandler(client *Client, command FtpCommand) (isExiting bool) {
+	realDir := client.realPath(command.Params[0])
+	if err := os.Remove(realDir); err != nil {
+		_ = client.sendReply(550, "Can't remove directory: %v", err.(*os.PathError).Err)
+	} else {
+		_ = client.sendReply(250, "The directory was successfully removed")
+	}
+
+	return
+}
+
+func deleHandler(client *Client, command FtpCommand) (isExiting bool) {
+	paramPath := command.Params[0]
+	realPath := client.realPath(paramPath)
+	if stat, err := os.Stat(realPath); err != nil {
+		_ = client.sendReply(550, "Could not delete %s: %v", paramPath, err.(*os.PathError).Err)
+	} else if stat.IsDir() {
+		_ = client.sendReply(550, "Could not delete %s: Invalid argument", paramPath)
+	}
+
+	if err := os.Remove(realPath); err != nil {
+		_ = client.sendReply(550, "Could not delete %s: %v", paramPath, err.(*os.PathError).Err)
+	}
+
+	return
+}
+
+func mkdHandler(client *Client, command FtpCommand) (isExiting bool) {
+	realDir := client.realPath(command.Params[0])
+	if err := os.Mkdir(realDir, 0755); err != nil {
+		_ = client.sendReply(550, "Can't create directory: %v", err.(*os.PathError).Err)
+	} else {
+		_ = client.sendReply(257, "%q : The directory was successfully created", paramDir)
+	}
+
+	return
+}
+
 func userHandler(client *Client, command FtpCommand) (isExiting bool) {
 	client.username = command.Params[0]
-	client.sendReply(331, "User %s OK. Password required", client.username)
+	_ = client.sendReply(331, "User %s OK. Password required", client.username)
 	return
 }
 
@@ -209,6 +248,10 @@ func listHandler(client *Client, command FtpCommand) (isExiting bool) {
 	_ = client.dataConn.Close()
 
 	return false
+}
+
+func nlstHandler(client *Client, command FtpCommand) (isExiting bool) {
+	return
 }
 
 func pwdHandler(client *Client, command FtpCommand) (isExiting bool) {
