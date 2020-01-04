@@ -2,9 +2,12 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
+
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/urfave/cli"
 )
@@ -55,37 +58,24 @@ func tty() (*os.File, error) {
 	return f, nil
 }
 
-func scanPassword(sc *bufio.Scanner) (string, error) {
-	var err error
-	if !sc.Scan() {
-		if err = sc.Err(); err != nil {
-			return "", err
-		}
-		return "", errors.New("reached EOF before finding password")
-	}
-
-	return sc.Text(), nil
-}
-
 func promptPassword(sc *bufio.Scanner) (string, error) {
 	fmt.Printf("Password: ")
-
-	pass1, err := scanPassword(sc)
+	pass1, err := terminal.ReadPassword(0)
 	if err != nil {
-		return "", err
+		return "", nil
 	}
 
 	fmt.Printf("Please confirm the password: ")
-	pass2, err := scanPassword(sc)
+	pass2, err := terminal.ReadPassword(0)
 	if err != nil {
 		return "", err
 	}
 
-	if pass1 != pass2 {
+	if bytes.Equal(pass1, pass2) {
 		return "", errors.New("passwords do not match")
 	}
 
-	return pass1, nil
+	return string(pass1), nil
 }
 
 func userAdd(ctx *cli.Context) error {
