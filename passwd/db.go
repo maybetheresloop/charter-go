@@ -20,11 +20,13 @@ var (
 )
 
 var (
-	ErrNotExist = errors.New("user does not exist")
+	ErrNotExist          = errors.New("user does not exist")
+	ErrIncorrectPassword = errors.New("incorrect password")
 )
 
 type Connector interface {
 	GetPassword(user string) (string, error)
+	CheckUserPassword(user string, pass string) error
 }
 
 type Driver interface {

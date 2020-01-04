@@ -20,6 +20,7 @@ type dataConnListener struct {
 }
 
 type Server struct {
+	auth                []auth
 	config              *Config
 	passwdDb            passwd.DB
 	dataConnListenersMu sync.Mutex
@@ -27,7 +28,11 @@ type Server struct {
 	shutdown            chan struct{}
 }
 
-type Backend struct {
+type auth struct {
+	connector passwd.Connector
+}
+
+type BackendConf struct {
 	Name           string
 	DataSourceName string `toml:"data-source-name"`
 }
@@ -42,7 +47,7 @@ type Config struct {
 	DefaultDir       string
 	NoAnonymous      bool `toml:"no-anonymous"`
 	AnonymousOnly    bool `toml:"anonymous-only"`
-	Backend          []Backend
+	Backend          []BackendConf
 	PassivePortRange PassivePortRange
 }
 

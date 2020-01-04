@@ -5,7 +5,7 @@ import (
 	"os"
 
 	charter "github.com/maybetheresloop/charter-go"
-	_ "github.com/maybetheresloop/charter-go/passwd/backend/csv"
+	_ "github.com/maybetheresloop/charter-go/passwd/backend/text"
 	"github.com/urfave/cli"
 )
 
