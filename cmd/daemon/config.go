@@ -4,23 +4,29 @@ import (
 	"os"
 
 	"github.com/BurntSushi/toml"
-
 	"github.com/maybetheresloop/charter-go"
 	"github.com/urfave/cli"
+)
+
+const (
+	DefaultAddr          string = ":5678"
+	DefaultDir           string = "/"
+	DefaultPortRangeFrom uint16 = 40001
+	DefaultPortRangeTo   uint16 = 40009
 )
 
 func defaultConfig() *charter.Config {
 	defaultDir, err := os.UserHomeDir()
 	if err != nil {
-		defaultDir = "/"
+		defaultDir = DefaultDir
 	}
 
 	return &charter.Config{
-		Addr:       ":5678",
+		Addr:       DefaultAddr,
 		DefaultDir: defaultDir,
 		PassivePortRange: charter.PassivePortRange{
-			From: 40001,
-			To:   40009,
+			From: DefaultPortRangeFrom,
+			To:   DefaultPortRangeTo,
 		},
 	}
 }

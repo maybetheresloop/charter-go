@@ -1,6 +1,19 @@
 package passwd
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
+
+type unknownDriverError string
+
+func (err unknownDriverError) Error() string {
+	return fmt.Sprintf("unknown driver: %s", err)
+}
+
+func errUnknownDriver(driverName string) error {
+	return unknownDriverError(driverName)
+}
 
 var (
 	drivers = make(map[string]Driver)
@@ -26,8 +39,34 @@ func (db *DB) GetPassword(user string) (string, error) {
 	return db.connector.GetPassword(user)
 }
 
+func (db *DB) UserAdd(user string, pass string) error {
+	return nil
+}
+
+func (db *DB) Commit() error {
+	return nil
+}
+
+func (db *DB) Close() error {
+	if err := db.Commit(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func Open(driverName, dataSourceName string) (*DB, error) {
-	return nil, nil
+	driver, ok := drivers[driverName]
+	if !ok {
+		return nil, errUnknownDriver(driverName)
+	}
+
+	conn, err := driver.OpenConnector(dataSourceName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DB{conn}, nil
 }
 
 func Register(driverName string, driver Driver) {
