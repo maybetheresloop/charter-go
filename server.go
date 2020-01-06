@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"net/textproto"
 	"os"
@@ -12,6 +13,20 @@ import (
 	"sync"
 
 	"github.com/maybetheresloop/charter-go/passwd"
+)
+
+type transmissionMode int
+type dataType int
+
+const (
+	ModeStream transmissionMode = iota
+	ModeBlock
+	ModeCompressed
+)
+
+const (
+	TypeASCII dataType = iota
+	TypeImage
 )
 
 type dataConnListener struct {
@@ -25,7 +40,6 @@ type Server struct {
 	passwdDb            passwd.DB
 	dataConnListenersMu sync.Mutex
 	dataConnListeners   map[uint16]*dataConnListener
-	shutdown            chan struct{}
 }
 
 type auth struct {
@@ -56,6 +70,8 @@ type Client struct {
 	dataLis      net.Listener
 	dataConn     net.Conn
 	dataPort     uint16
+	dataType     dataType
+	mode         transmissionMode
 	server       *Server
 	response     *bytes.Buffer
 	username     string
@@ -104,6 +120,54 @@ func (client *Client) handleConn() {
 			break
 		}
 	}
+}
+
+// sendASCII copies from src to dst, translating native line endings in src to
+// CRLF line endings in dst.
+func sendASCII(dst io.Writer, src io.Reader) error {
+	return nil
+}
+
+// copyASCII copies from src to dst, translating CRLF line endings in src to
+// native line endings in dst.
+func storeASCII(dst io.Writer, src io.Reader) error {
+	bufDst := bufio.NewWriter(dst)
+	bufSrc := bufio.NewReader(src)
+
+	for {
+		b, err := bufSrc.ReadByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+
+		// Both "\r" and "\r\n" are transformed into "\n".
+		if b == '\r' {
+			if err := bufDst.WriteByte('\n'); err != nil {
+				return err
+			}
+			b, err := bufSrc.ReadByte()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return err
+			}
+			if b == '\n' {
+				continue
+			}
+			if err := bufDst.WriteByte(b); err != nil {
+				return err
+			}
+		} else {
+			if err := bufDst.WriteByte(b); err != nil {
+				return err
+			}
+		}
+	}
+	return bufDst.Flush()
 }
 
 func (client *Client) sendReply(code int, format string, args ...interface{}) error {
@@ -271,4 +335,20 @@ func (client *Client) ensureDataConn() bool {
 	}
 
 	return true
+}
+
+func (client *Client) writeFile(filename string, r io.Reader, perm os.FileMode, append bool) error {
+	flags := os.O_CREATE | os.O_WRONLY
+	if append {
+		flags |= os.O_APPEND
+	}
+
+	f, err := os.OpenFile(filename, flags, perm)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = io.Copy(f, r)
+	return err
 }

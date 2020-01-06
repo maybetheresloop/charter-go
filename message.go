@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 var (
@@ -74,7 +75,7 @@ func init() {
 		},
 		"MODE": {
 			argc:    1,
-			handler: notImplementedHandler,
+			handler: modeHandler,
 		},
 		"RETR": {
 			argc:    1,
@@ -82,7 +83,7 @@ func init() {
 		},
 		"STOR": {
 			argc:    1,
-			handler: notImplementedHandler,
+			handler: storHandler,
 		},
 		"STOU": {
 			argc:    0,
@@ -90,7 +91,7 @@ func init() {
 		},
 		"APPE": {
 			argc:    1,
-			handler: notImplementedHandler,
+			handler: appeHandler,
 		},
 		"ABOR": {
 			argc:    0,
@@ -234,7 +235,17 @@ func pasvHandler(client *Client, command FtpCommand) (isExiting bool) {
 
 	_ = client.sendReply(227, "Entering Passive Mode (127,0,0,1,%d,%d)",
 		client.dataPort&0xFF00>>8, client.dataPort&0x00FF)
-	return false
+	return
+}
+
+func modeHandler(client *Client, command FtpCommand) (isExiting bool) {
+	mode := unicode.ToLower(rune(command.Params[0][0]))
+	if mode == 's' {
+		_ = client.sendReply(200, "S OK")
+	} else {
+		_ = client.sendReply(504, "Please use (S)tream mode")
+	}
+	return
 }
 
 func listHandler(client *Client, command FtpCommand) (isExiting bool) {
@@ -245,6 +256,48 @@ func listHandler(client *Client, command FtpCommand) (isExiting bool) {
 
 	// Send over the data connection.
 	_, _ = fmt.Fprintf(client.dataConn, "list")
+	return
+}
+
+func appeHandler(client *Client, command FtpCommand) (isExiting bool) {
+	if !client.ensureDataConn() {
+		return
+	}
+	defer client.dataConn.Close()
+
+	paramPath := command.Params[0]
+	realPath := client.realPath(paramPath)
+	err := client.writeFile(realPath, client.dataConn, 0644, true)
+	if err != nil {
+		if v, ok := err.(*os.PathError); ok {
+			_ = client.sendReply(550, "Can't open %s: %v", paramPath, v.Err)
+		} else {
+			_ = client.sendReply(550, "Can't append to %s: %v", paramPath, err)
+		}
+	}
+
+	return
+}
+
+func storHandler(client *Client, command FtpCommand) (isExiting bool) {
+	// Get source data connection.
+	if !client.ensureDataConn() {
+		return
+	}
+	defer client.dataConn.Close()
+
+	// Set up destination file.
+	paramPath := command.Params[0]
+	realPath := client.realPath(paramPath)
+	err := client.writeFile(realPath, client.dataConn, 0644, false)
+	if err != nil {
+		if v, ok := err.(*os.PathError); ok {
+			_ = client.sendReply(550, "Can't open %s: %v", paramPath, v.Err)
+		} else {
+			_ = client.sendReply(550, "Can't store %s: %v", paramPath, err)
+		}
+	}
+
 	return
 }
 
@@ -265,9 +318,18 @@ func pwdHandler(client *Client, command FtpCommand) (isExiting bool) {
 }
 
 func quitHandler(client *Client, command FtpCommand) bool {
-	//
-
 	return true
+}
+
+func typeHandler(client *Client, command FtpCommand) bool {
+	// Currently support ASCII and Image types.
+	if unicode.ToLower(rune(command.Params[1][0])) == 'a' {
+		client.sendReply(200, "TYPE is now ASCII")
+	} else if unicode.ToLower(rune(command.Params[1][0])) == 'i' {
+		client.sendReply(200, "TYPE is now 8-bit binary")
+	}
+
+	return false
 }
 
 func notImplementedHandler(client *Client, command FtpCommand) bool {
