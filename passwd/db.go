@@ -25,8 +25,15 @@ var (
 )
 
 type Connector interface {
+	// GetPassword returns the password corresponding to the user.
 	GetPassword(user string) (string, error)
+
+	// CheckUserPassword verifies that the specified password matches that of the user.
 	CheckUserPassword(user string, pass string) error
+
+	// Sync ensures that any changes made to the authentication backend are persisted
+	// to disk.
+	Sync() error
 }
 
 type Driver interface {

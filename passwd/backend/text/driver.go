@@ -19,7 +19,11 @@ import (
 	"github.com/maybetheresloop/charter-go/passwd"
 )
 
-type connector map[string]string
+type connector struct {
+	filename string
+	users    []string
+	userInfo map[string]string
+}
 
 type driver struct{}
 
@@ -44,9 +48,9 @@ func reader(rd io.Reader) *csv.Reader {
 
 // openReader parses user information lines into a map and returns it in
 // the form of a passwd.Connector.
-func openReader(rd io.Reader) (passwd.Connector, error) {
+func readUsers(rd io.Reader) (users []string, userInfo map[string]string, err error) {
 	r := reader(rd)
-	c := make(connector)
+	userInfo = make(map[string]string)
 
 	for {
 		record, err := r.Read()
@@ -54,17 +58,18 @@ func openReader(rd io.Reader) (passwd.Connector, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if len(record) != 2 {
-			return nil, ErrMalformedRecord
+			return nil, nil, ErrMalformedRecord
 		}
 
-		c[record[0]] = record[1]
+		users = append(users, record[0])
+		userInfo[record[0]] = record[1]
 	}
 
-	return c, nil
+	return users, userInfo, nil
 }
 
 // OpenConnector opens the passwd file, parses it, and returns a handle to it
@@ -75,12 +80,21 @@ func (drv driver) OpenConnector(dataSourceName string) (passwd.Connector, error)
 		return nil, err
 	}
 	defer f.Close()
-	return openReader(f)
+	users, userInfo, err := readUsers(f)
+	if err != nil {
+		return nil, err
+	}
+
+	return &connector{
+		filename: dataSourceName,
+		users:    users,
+		userInfo: userInfo,
+	}, nil
 }
 
 // GetPassword retrieves the password of the specified user.
-func (c connector) GetPassword(user string) (string, error) {
-	pw, ok := c[user]
+func (c *connector) GetPassword(user string) (string, error) {
+	pw, ok := c.userInfo[user]
 	if !ok {
 		return "", passwd.ErrNotExist
 	}
@@ -89,15 +103,21 @@ func (c connector) GetPassword(user string) (string, error) {
 
 // CheckUserPassword verifies that the specified password matches that of the
 // user. Returns true if the password is correct, false if not.
-func (c connector) CheckUserPassword(user string, pass string) error {
+func (c *connector) CheckUserPassword(user string, pass string) error {
 	guessHash, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 
-	if base64.StdEncoding.EncodeToString(guessHash) != c[user] {
+	if base64.StdEncoding.EncodeToString(guessHash) != c.userInfo[user] {
 		return passwd.ErrIncorrectPassword
 	}
 
+	return nil
+}
+
+// Sync guarantees that the changes made to the connector are persisted to disk.
+func (c *connector) Sync() error {
+	// Re-open the database file and write the contents of the connector.
 	return nil
 }
