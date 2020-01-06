@@ -108,13 +108,22 @@ func (client *Client) handleConn() {
 
 func (client *Client) sendReply(code int, format string, args ...interface{}) error {
 	client.response.Reset()
+	formatted := fmt.Sprintf(format, args...)
+	lines := strings.Split(formatted, "\n")
 
-	_, _ = fmt.Fprintf(client.response, "%d ", code)
-	_, _ = fmt.Fprintf(client.response, format, args...)
-	client.bufferCrlf()
+	var i int
+	for i = 0; i < len(lines)-1; i++ {
+		_, _ = fmt.Fprintf(client.response, "%d-%s", code, lines[i])
+	}
+	_, _ = fmt.Fprintf(client.response, "%d %s", code, lines[i])
 
 	_, err := client.ctrlConn.Write(client.response.Bytes())
 	return err
+}
+
+func (client *Client) bufferPadding() {
+	client.response.WriteByte(byte(' '))
+	client.response.WriteByte(byte(' '))
 }
 
 func (client *Client) bufferCrlf() {
