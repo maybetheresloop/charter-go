@@ -10,7 +10,7 @@ import (
 func TestOpenReader(t *testing.T) {
 	text := "user1,passwd1\nuser2,passwd2\nuser3,passwd3\n"
 
-	c, err := openReader(strings.NewReader(text))
+	c, err := readUsers(strings.NewReader(text))
 	assert.Nil(t, err)
 
 	tests := []struct {
@@ -33,7 +33,7 @@ func TestOpenReader(t *testing.T) {
 func TestOpenReaderMalformedRecord(t *testing.T) {
 	text := "user1\n"
 
-	c, err := openReader(strings.NewReader(text))
+	c, err := readUsers(strings.NewReader(text))
 	assert.NotNil(t, err)
 	assert.Nil(t, c)
 }
@@ -41,9 +41,8 @@ func TestOpenReaderMalformedRecord(t *testing.T) {
 func TestOpenReaderEmpty(t *testing.T) {
 	text := ""
 
-	c, err := openReader(strings.NewReader(text))
+	c, err := readUsers(strings.NewReader(text))
 	assert.Nil(t, err)
-	v := c.(connector)
-
-	assert.Len(t, v, 0)
+	assert.Len(t, c.users, 0)
+	assert.Len(t, c.userInfo, 0)
 }

@@ -60,9 +60,10 @@ func reader(rd io.Reader) *csv.Reader {
 
 // openReader parses user information lines into a map and returns it in
 // the form of a passwd.Connector.
-func readUsers(rd io.Reader) (users []string, info map[string]*userInfo, err error) {
+func readUsers(rd io.Reader) (*connector, error) {
 	r := reader(rd)
-	info = make(map[string]*userInfo)
+	info := make(map[string]*userInfo)
+	var users []string
 
 	for {
 		record, err := r.Read()
@@ -70,11 +71,11 @@ func readUsers(rd io.Reader) (users []string, info map[string]*userInfo, err err
 			break
 		}
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		if len(record) != 2 {
-			return nil, nil, ErrMalformedRecord
+			return nil, ErrMalformedRecord
 		}
 
 		users = append(users, record[0])
@@ -84,7 +85,10 @@ func readUsers(rd io.Reader) (users []string, info map[string]*userInfo, err err
 		}
 	}
 
-	return users, info, nil
+	return &connector{
+		users:    users,
+		userInfo: info,
+	}, nil
 }
 
 // OpenConnector opens the passwd file, parses it, and returns a handle to it
@@ -95,16 +99,13 @@ func (drv driver) OpenConnector(dataSourceName string) (passwd.Connector, error)
 		return nil, err
 	}
 	defer f.Close()
-	users, userInfo, err := readUsers(f)
+	c, err := readUsers(f)
 	if err != nil {
 		return nil, err
 	}
+	c.filename = dataSourceName
 
-	return &connector{
-		filename: dataSourceName,
-		users:    users,
-		userInfo: userInfo,
-	}, nil
+	return c, nil
 }
 
 // GetPassword retrieves the password of the specified user.

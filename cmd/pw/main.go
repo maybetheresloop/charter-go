@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -58,7 +57,7 @@ func tty() (*os.File, error) {
 	return f, nil
 }
 
-func promptPassword(sc *bufio.Scanner) (string, error) {
+func promptPassword() (string, error) {
 	fmt.Printf("Password: ")
 	pass1, err := terminal.ReadPassword(0)
 	if err != nil {
@@ -90,13 +89,7 @@ func userAdd(ctx *cli.Context) error {
 	//}
 	//defer db.Close()
 
-	// Password prompt. Passwords may only be accepted from a terminal.
-	f, err := tty()
-	if err != nil {
-		return err
-	}
-
-	_, err = promptPassword(bufio.NewScanner(f))
+	_, err := promptPassword()
 	if err != nil {
 		return err
 	}
