@@ -14,15 +14,22 @@ import (
 	"io"
 	"os"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/maybetheresloop/charter-go/passwd"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type connector struct {
 	filename string
 	users    []string
 	userInfo map[string]string
+}
+
+func recordFromUserInfo(user string, userInfo string) []string {
+	var record []string
+	record = append(record, user)
+	record = append(record, userInfo)
+
+	return record
 }
 
 type driver struct{}
@@ -119,5 +126,22 @@ func (c *connector) CheckUserPassword(user string, pass string) error {
 // Sync guarantees that the changes made to the connector are persisted to disk.
 func (c *connector) Sync() error {
 	// Re-open the database file and write the contents of the connector.
+	f, err := os.OpenFile(c.filename, os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	w := csv.NewWriter(f)
+
+	for _, user := range c.users {
+		userInfo := c.userInfo[user]
+		record := recordFromUserInfo(user, userInfo)
+		if err := w.Write(record); err != nil {
+			return err
+		}
+	}
+
+	w.Flush()
 	return nil
 }
