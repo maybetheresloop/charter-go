@@ -2,7 +2,7 @@
 // Files managed by this backend store user information in one line per
 // user. Each line is of the following form.
 //
-// 		<account>:<password>
+// 		<account>:<password>:<home directory>
 //
 // Passwords are stored as base64-encoded bcrypt hashes.
 package text
@@ -18,16 +18,21 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type userInfo struct {
+	pass    string // Base64-encoded bcrypt hash of the user's password.
+	homeDir string
+}
+
 type connector struct {
 	filename string
 	users    []string
-	userInfo map[string]string
+	userInfo map[string]*userInfo
 }
 
-func recordFromUserInfo(user string, userInfo string) []string {
+func recordFromUserInfo(user string, info *userInfo) []string {
 	var record []string
 	record = append(record, user)
-	record = append(record, userInfo)
+	record = append(record, info.pass)
 
 	return record
 }
@@ -55,9 +60,9 @@ func reader(rd io.Reader) *csv.Reader {
 
 // openReader parses user information lines into a map and returns it in
 // the form of a passwd.Connector.
-func readUsers(rd io.Reader) (users []string, userInfo map[string]string, err error) {
+func readUsers(rd io.Reader) (users []string, info map[string]*userInfo, err error) {
 	r := reader(rd)
-	userInfo = make(map[string]string)
+	info = make(map[string]*userInfo)
 
 	for {
 		record, err := r.Read()
@@ -73,10 +78,13 @@ func readUsers(rd io.Reader) (users []string, userInfo map[string]string, err er
 		}
 
 		users = append(users, record[0])
-		userInfo[record[0]] = record[1]
+		info[record[0]] = &userInfo{
+			pass:    record[1],
+			homeDir: "",
+		}
 	}
 
-	return users, userInfo, nil
+	return users, info, nil
 }
 
 // OpenConnector opens the passwd file, parses it, and returns a handle to it
@@ -105,7 +113,7 @@ func (c *connector) GetPassword(user string) (string, error) {
 	if !ok {
 		return "", passwd.ErrNotExist
 	}
-	return pw, nil
+	return pw.pass, nil
 }
 
 // CheckUserPassword verifies that the specified password matches that of the
@@ -116,7 +124,7 @@ func (c *connector) CheckUserPassword(user string, pass string) error {
 		return err
 	}
 
-	if base64.StdEncoding.EncodeToString(guessHash) != c.userInfo[user] {
+	if base64.StdEncoding.EncodeToString(guessHash) != c.userInfo[user].pass {
 		return passwd.ErrIncorrectPassword
 	}
 
