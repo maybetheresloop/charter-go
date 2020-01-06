@@ -1,6 +1,10 @@
+# Disallow authenticated users - act only as a public FTP server.
 anonymous-only = false
+
+# Disallow anonymous connections and accept only authenticated users.
 no-anonymous = false
 
+# User authentication text backend.
 [[backend]]
-name = "csv"
+name = "text"
 data-source-name = "charterd-passwd.csv"
